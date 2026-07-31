@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scroll Path — Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F7F9FB;
+    --ink:#0B1F3A;
+    --path:#1454C4;
+    --path-track:#D8E1F0;
+    --accent:#12A594;
+    --marker:#F2A93B;
+    --panel:#FFFFFF;
+    --muted:#6B7785;
+    --lane: min(46vw, 560px);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    overflow-x:hidden;
+  }
+  .label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--accent);
+  }
+
+  /* ---------- HERO ---------- */
+  .hero{
+    min-height:70vh;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    text-align:center;
+    padding:6vh 8vw;
+    position:relative;
+  }
+  .hero h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:clamp(2.2rem, 5vw, 4rem);
+    line-height:1.05;
+    margin:0.6em 0 0.4em;
+    max-width:14ch;
+  }
+  .hero p{
+    color:var(--muted);
+    max-width:46ch;
+    font-size:1.05rem;
+    margin:0;
+  }
+  .scroll-cue{
+    margin-top:3rem;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--muted);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+  }
+  .scroll-cue .stem{
+    width:1px;
+    height:32px;
+    background:linear-gradient(var(--path), transparent);
+    animation:pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes pulse{
+    0%,100%{opacity:0.3;}
+    50%{opacity:1;}
+  }
+
+  /* ---------- STAGE ---------- */
+  .stage{
+    position:relative;
+    max-width:1100px;
+    margin:0 auto;
+    padding:0 6vw 20vh;
+  }
+  .pathsvg{
+    position:absolute;
+    top:0; left:0;
+    width:100%;
+    height:100%;
+    pointer-events:none;
+    overflow:visible;
+  }
+  .pathsvg .track{
+    fill:none;
+    stroke:var(--path-track);
+    stroke-width:3;
+    stroke-linecap:round;
+  }
+  .pathsvg .draw{
+    fill:none;
+    stroke:var(--path);
+    stroke-width:3;
+    stroke-linecap:round;
+    filter:drop-shadow(0 0 6px rgba(20,84,196,0.25));
+  }
+
+  .marker-layer{
+    position:absolute;
+    top:0; left:0;
+    width:100%;
+    height:100%;
+    pointer-events:none;
+  }
+  .marker{
+    position:absolute;
+    top:0; left:0;
+    width:44px;
+    height:44px;
+    margin:-22px 0 0 -22px;
+    will-change:transform;
+  }
+  .marker svg{width:100%;height:100%;display:block;}
+  .marker .ring{
+    fill:var(--panel);
+    stroke:var(--path);
+    stroke-width:2;
+  }
+  .marker .blade{
+    fill:var(--marker);
+    transform-origin:22px 22px;
+  }
+  .marker .core{
+    fill:var(--ink);
+  }
+
+  /* ---------- STOPS ---------- */
+  .stop{
+    position:relative;
+    min-height:62vh;
+    display:flex;
+    align-items:center;
+  }
+  .stop:nth-child(odd) .card{ margin-right:auto; text-align:left; }
+  .stop:nth-child(even) .card{ margin-left:auto; text-align:right; }
+  .stop:nth-child(even) .card .label{ justify-content:flex-end; }
+
+  .card{
+    width:min(72%, 420px);
+    background:var(--panel);
+    border-radius:14px;
+    padding:28px 30px;
+    box-shadow:0 18px 40px -20px rgba(11,31,58,0.25);
+    opacity:0;
+    transform:translateY(28px);
+    transition:opacity 0.7s cubic-bezier(.2,.8,.2,1), transform 0.7s cubic-bezier(.2,.8,.2,1);
+  }
+  .stop:nth-child(even) .card{ transform:translateY(28px); }
+  .card.visible{
+    opacity:1;
+    transform:translateY(0);
+  }
+  .card .label{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:10px;
+  }
+  .card h2{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:1.5rem;
+    margin:0 0 8px;
+  }
+  .card p{
+    margin:0;
+    color:var(--muted);
+    font-size:0.96rem;
+    line-height:1.55;
+  }
+
+  /* ---------- FOOTER NOTE ---------- */
+  .footer-note{
+    max-width:640px;
+    margin:0 auto 12vh;
+    padding:0 8vw;
+    text-align:center;
+    color:var(--muted);
+    font-size:0.9rem;
+  }
+
+  @media (max-width:720px){
+    .card{ width:82%; }
+    .stop:nth-child(odd) .card,
+    .stop:nth-child(even) .card{ margin-left:auto; margin-right:auto; text-align:left; }
+    .stop:nth-child(even) .card .label{ justify-content:flex-start; }
+  }
+
+  /* ---------- EMBEDDED (inside an iframe) ---------- */
+  body.embedded .hero{ min-height:44vh; padding:5vh 6vw 3vh; }
+  body.embedded .hero h1{ font-size:clamp(1.6rem, 4vw, 2.4rem); }
+  body.embedded{
+    border:1px solid #E4E9F0;
+    border-radius:0;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto;}
+    .card{ transition:none; opacity:1; transform:none; }
+    .scroll-cue .stem{ animation:none; }
+  }
+</style>
+</head>
+<body>
+
+  <section class="hero">
+    <span class="label">Scroll mechanic — prototype</span>
+    <h1>The page moves<br>as you do</h1>
+    <p>A path draws itself down the page and a marker travels along it in step with your scroll. Swap the five stops below with real content — the mechanic stays the same.</p>
+    <div class="scroll-cue"><span>scroll</span><span class="stem"></span></div>
+  </section>
+
+  <div class="stage" id="stage">
+    <svg class="pathsvg" id="pathsvg">
+      <path class="track" id="trackPath" d=""></path>
+      <path class="draw" id="drawPath" d=""></path>
+    </svg>
+
+    <div class="marker-layer">
+      <div class="marker" id="marker">
+        <svg viewBox="0 0 44 44">
+          <circle class="ring" cx="22" cy="22" r="19"></circle>
+          <g id="blades">
+            <path class="blade" d="M22 22 L22 6 L28 9 Z"></path>
+            <path class="blade" d="M22 22 L34.6 12.4 L34.9 19 Z" transform="rotate(60 22 22)"></path>
+            <path class="blade" d="M22 22 L34.6 12.4 L34.9 19 Z" transform="rotate(120 22 22)"></path>
+            <path class="blade" d="M22 22 L34.6 12.4 L34.9 19 Z" transform="rotate(180 22 22)"></path>
+            <path class="blade" d="M22 22 L34.6 12.4 L34.9 19 Z" transform="rotate(240 22 22)"></path>
+            <path class="blade" d="M22 22 L34.6 12.4 L34.9 19 Z" transform="rotate(300 22 22)"></path>
+          </g>
+          <circle class="core" cx="22" cy="22" r="3.5"></circle>
+        </svg>
+      </div>
+    </div>
+
+    <section class="stop" data-stop="0">
+      <div class="card">
+        <div class="label"><span>Stop 01</span></div>
+        <h2>First waypoint</h2>
+        <p>Placeholder copy. This card fades and lifts into place once it crosses the trigger line, and the path finishes drawing to meet it.</p>
+      </div>
+    </section>
+
+    <section class="stop" data-stop="1">
+      <div class="card">
+        <div class="label"><span>Stop 02</span></div>
+        <h2>Second waypoint</h2>
+        <p>Placeholder copy. Lanes alternate left and right automatically — nth-child does the work, no manual positioning per stop.</p>
+      </div>
+    </section>
+
+    <section class="stop" data-stop="2">
+      <div class="card">
+        <div class="label"><span>Stop 03</span></div>
+        <h2>Third waypoint</h2>
+        <p>Placeholder copy. The waypoints are computed from each stop's real position after layout, so this reflows cleanly at any width.</p>
+      </div>
+    </section>
+
+    <section class="stop" data-stop="3">
+      <div class="card">
+        <div class="label"><span>Stop 04</span></div>
+        <h2>Fourth waypoint</h2>
+        <p>Placeholder copy. The aperture marker breathes open on fast scroll and eases shut at rest — a small nod to a lens, not a spinner.</p>
+      </div>
+    </section>
+
+    <section class="stop" data-stop="4">
+      <div class="card">
+        <div class="label"><span>Stop 05</span></div>
+        <h2>Final waypoint</h2>
+        <p>Placeholder copy. Swap these five sections for your real pillars — the path, marker and reveal timing need no changes.</p>
+      </div>
+    </section>
+  </div>
+
+  <p class="footer-note">Built with plain HTML / CSS / JS — no external animation library, so it survives inside a locked-down iframe.</p>
+
+<script>
+(function(){
+  if (window.self !== window.top){
+    document.body.classList.add('embedded');
+  }
+  var stage = document.getElementById('stage');
+  var svg = document.getElementById('pathsvg');
+  var trackPath = document.getElementById('trackPath');
+  var drawPath = document.getElementById('drawPath');
+  var marker = document.getElementById('marker');
+  var blades = document.getElementById('blades');
+  var stops = Array.prototype.slice.call(document.querySelectorAll('.stop'));
+  var cards = Array.prototype.slice.call(document.querySelectorAll('.card'));
+
+  var pathLength = 0;
+  var waypoints = [];
+
+  // Build a smooth path through the vertical center of each stop,
+  // alternating x position left/right to create the wind.
+  function buildPath(){
+    var w = stage.clientWidth;
+    var h = stage.scrollHeight;
+    svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+    svg.style.height = h + 'px';
+
+    var amp = Math.min(w * 0.30, 220); // how far the path swings from center
+    var cx = w / 2;
+
+    waypoints = stops.map(function(stop, i){
+      var rect = stop.getBoundingClientRect();
+      var stageRect = stage.getBoundingClientRect();
+      var y = rect.top - stageRect.top + rect.height / 2;
+      var side = i % 2 === 0 ? -1 : 1;
+      var x = cx + side * amp;
+      return {x: x, y: y};
+    });
+
+    // include a start point above the first stop and end point after the last
+    var start = {x: cx, y: 0};
+    var end = {x: cx, y: h};
+    var pts = [start].concat(waypoints).concat([end]);
+
+    var d = 'M ' + pts[0].x + ' ' + pts[0].y + ' ';
+    for (var i = 0; i < pts.length - 1; i++){
+      var p0 = pts[i === 0 ? 0 : i - 1];
+      var p1 = pts[i];
+      var p2 = pts[i + 1];
+      var p3 = pts[i + 2 < pts.length ? i + 2 : i + 1];
+      // Catmull-Rom to Bezier
+      var c1x = p1.x + (p2.x - p0.x) / 6;
+      var c1y = p1.y + (p2.y - p0.y) / 6;
+      var c2x = p2.x - (p3.x - p1.x) / 6;
+      var c2y = p2.y - (p3.y - p1.y) / 6;
+      d += 'C ' + c1x + ' ' + c1y + ', ' + c2x + ' ' + c2y + ', ' + p2.x + ' ' + p2.y + ' ';
+    }
+
+    trackPath.setAttribute('d', d);
+    drawPath.setAttribute('d', d);
+    pathLength = drawPath.getTotalLength();
+    drawPath.style.strokeDasharray = pathLength;
+    drawPath.style.strokeDashoffset = pathLength;
+  }
+
+  var lastY = window.scrollY;
+  var bladeAngle = 0, bladeTarget = 0;
+
+  function onScroll(){
+    var stageRect = stage.getBoundingClientRect();
+    var stageTop = window.scrollY + stageRect.top;
+    var stageHeight = stage.scrollHeight;
+    var viewportMid = window.scrollY + window.innerHeight * 0.5;
+
+    var progress = (viewportMid - stageTop) / stageHeight;
+    progress = Math.max(0, Math.min(1, progress));
+
+    var offset = pathLength * (1 - progress);
+    drawPath.style.strokeDashoffset = offset;
+
+    var pt = drawPath.getPointAtLength(pathLength * progress);
+    marker.style.transform = 'translate(' + pt.x + 'px,' + pt.y + 'px)';
+
+    var dy = window.scrollY - lastY;
+    lastY = window.scrollY;
+    bladeTarget = Math.max(-1, Math.min(1, dy / 40));
+  }
+
+  function raf(){
+    bladeAngle += (bladeTarget - bladeAngle) * 0.15;
+    bladeTarget *= 0.9;
+    var openness = 8 + Math.abs(bladeAngle) * 10; // degrees blades fan open
+    blades.querySelectorAll('.blade').forEach(function(blade, i){
+      var base = i * 60;
+      blade.style.transform = 'rotate(' + (base + openness) + 'deg)';
+    });
+    requestAnimationFrame(raf);
+  }
+
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if (entry.isIntersecting) entry.target.classList.add('visible');
+    });
+  }, {threshold: 0.35});
+  cards.forEach(function(c){ io.observe(c); });
+
+  window.addEventListener('resize', buildPath);
+  window.addEventListener('scroll', onScroll, {passive:true});
+  window.addEventListener('load', function(){
+    buildPath();
+    onScroll();
+  });
+
+  buildPath();
+  onScroll();
+  requestAnimationFrame(raf);
+})();
+</script>
+</body>
+</html>
